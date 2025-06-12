@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>🎲 Duelo de Pelotas de la Fortuna 🎲</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: 'Verdana', sans-serif;
+      background: radial-gradient(circle, #1a1a1a, #000000);
+      color: #f8f8f8;
+      margin: 0;
+      padding: 20px;
+      text-align: center;
+    }
+    h1 {
+      font-size: 2.5rem;
+      color: gold;
+      text-shadow: 2px 2px 8px red, 0 0 20px gold;
+    }
+    p {
+      font-size: 1.2rem;
+      color: #ffebcd;
+      margin-top: -10px;
+    }
+    .container {
+      max-width: 950px;
+      margin: auto;
+      background: rgba(20, 20, 20, 0.95);
+      padding: 30px;
+      border: 3px solid gold;
+      border-radius: 15px;
+      box-shadow: 0 0 30px rgba(255, 215, 0, 0.5);
+    }
+    .instrucciones {
+      background: rgba(255, 255, 255, 0.1);
+      border: 2px dashed gold;
+      border-radius: 10px;
+      padding: 15px;
+      margin: 20px 0;
+      font-size: 1rem;
+      color: #fffacd;
+      text-align: left;
+    }
+    .urna {
+      position: relative;
+      width: 100%;
+      height: 320px;
+      background: repeating-linear-gradient(45deg, #2e2e2e, #2e2e2e 10px, #1e1e1e 10px, #1e1e1e 20px);
+      border: 3px solid gold;
+      border-radius: 15px;
+      overflow: hidden;
+      margin: 30px 0;
+    }
+    .pelota {
+      position: absolute;
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      font-weight: bold;
+      font-size: 1.2rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      text-shadow: 1px 1px 3px #000;
+      box-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
+      transition: transform 0.2s, box-shadow 0.3s;
+    }
+    .pelota:hover {
+      transform: scale(1.2);
+      box-shadow: 0 0 20px gold;
+    }
+    .botones {
+      margin: 20px 0;
+    }
+    button {
+      background: linear-gradient(to bottom, #ffcc00, #cc9900);
+      color: black;
+      border: 2px solid #fff8dc;
+      padding: 12px 25px;
+      margin: 0 10px;
+      border-radius: 10px;
+      font-size: 18px;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 0 0 10px gold;
+      transition: all 0.3s ease;
+    }
+    button:hover {
+      background: linear-gradient(to bottom, #fff8dc, #ffcc00);
+      transform: scale(1.05);
+    }
+    #resultado {
+      font-size: 22px;
+      font-weight: bold;
+      color: #ffd700;
+      margin-top: 20px;
+      text-shadow: 1px 1px 5px #000;
+    }
+    canvas {
+      background: #111;
+      border-radius: 10px;
+      margin-top: 25px;
+      padding: 10px;
+    }
+    .leyenda-grafica {
+      color: #ffebcd;
+      font-style: italic;
+      margin-top: -10px;
+      margin-bottom: 20px;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎲 Duelo de Pelotas de la Fortuna 🎲</h1>
+    <p>¡Apuesta tu suerte! Mezcla las pelotas y revela tu destino.</p>
+
+    <div class="instrucciones">
+      <strong>Instrucciones:</strong><br>
+      1. Presiona <strong>“Mezclar”</strong> para revolver las pelotas dentro de la urna.<br>
+      2. Luego, haz clic en <strong>“Jugar”</strong> para seleccionar aleatoriamente dos pelotas.<br>
+      3. Se mostrará el resultado de la suma y se actualizarán las gráficas de frecuencia.<br>
+      4. Puedes repetir las veces que quieras para observar la distribución de resultados.<br>
+    </div>
+
+    <div class="urna" id="urna"></div>
+
+    <div class="botones">
+      <button onclick="mezclarPelotas()">Mezclar</button>
+      <button onclick="jugar()">Jugar</button>
+    </div>
+
+    <div id="resultado"></div>
+
+    <canvas id="graficaPelotas" width="400" height="200"></canvas>
+    <p class="leyenda-grafica">📊 Esta gráfica muestra cuántas veces ha salido cada pelota (1, 2, 3, 4). A más juegos, mejor se ve la distribución.</p>
+    
+    <canvas id="graficaSuma" width="400" height="200"></canvas>
+    <p class="leyenda-grafica">🧠 Esta curva muestra la frecuencia de la suma de las pelotas. Con suficientes juegos, debería parecerse a una distribución normal.</p>
+  </div>
+
+  <script>
+    const urna = document.getElementById("urna");
+    const resultado = document.getElementById("resultado");
+    const pelotas = [];
+    const frecuenciaPelotas = [0, 0, 0, 0];
+    const frecuenciaSumas = {};
+    let pelotasSeleccionadas = [];
+    const colores = ['#ff0000', '#000000', '#800080', '#ffd700'];
+
+    let graficaPelotas, graficaSuma;
+
+    function crearPelotas() {
+      urna.innerHTML = '';
+      pelotas.length = 0;
+
+      for (let i = 1; i <= 4; i++) {
+        const pelota = document.createElement("div");
+        pelota.className = "pelota";
+        pelota.textContent = i;
+        pelota.style.background = colores[i - 1];
+        pelota.style.left = `${Math.random() * (urna.offsetWidth - 60)}px`;
+        pelota.style.top = `${Math.random() * (urna.offsetHeight - 60)}px`;
+
+        urna.appendChild(pelota);
+        pelotas.push({
+          el: pelota,
+          dx: Math.random() * 2 + 1,
+          dy: Math.random() * 2 + 1
+        });
+      }
+    }
+
+    function mezclarPelotas() {
+      resultado.textContent = '';
+      pelotas.forEach(obj => {
+        obj.el.style.left = `${Math.random() * (urna.offsetWidth - 60)}px`;
+        obj.el.style.top = `${Math.random() * (urna.offsetHeight - 60)}px`;
+      });
+    }
+
+    function jugar() {
+      if (pelotasSeleccionadas.length > 0) {
+        pelotasSeleccionadas.forEach(p => {
+          const num = parseInt(p.el.textContent) - 1;
+          p.el.style.background = colores[num];
+        });
+      }
+
+      pelotasSeleccionadas = [];
+      const seleccionadas = [];
+
+      while (seleccionadas.length < 2) {
+        const rand = Math.floor(Math.random() * pelotas.length);
+        if (!seleccionadas.includes(rand)) {
+          seleccionadas.push(rand);
+          const pelota = pelotas[rand];
+          pelota.el.style.background = '#ff1493';
+          pelotasSeleccionadas.push(pelota);
+
+          const val = parseInt(pelota.el.textContent);
+          frecuenciaPelotas[val - 1]++;
+        }
+      }
+
+      const val1 = parseInt(pelotas[seleccionadas[0]].el.textContent);
+      const val2 = parseInt(pelotas[seleccionadas[1]].el.textContent);
+      const suma = val1 + val2;
+
+      frecuenciaSumas[suma] = (frecuenciaSumas[suma] || 0) + 1;
+
+      resultado.textContent = `¡Ganaste! 🎉 Las pelotas ${val1} y ${val2} suman ${suma}`;
+      actualizarGraficas();
+    }
+
+    function animarPelotas() {
+      pelotas.forEach(p => {
+        let x = parseFloat(p.el.style.left);
+        let y = parseFloat(p.el.style.top);
+
+        if (x + p.dx < 0 || x + p.dx > urna.offsetWidth - 60) p.dx *= -1;
+        if (y + p.dy < 0 || y + p.dy > urna.offsetHeight - 60) p.dy *= -1;
+
+        p.el.style.left = `${x + p.dx}px`;
+        p.el.style.top = `${y + p.dy}px`;
+      });
+
+      requestAnimationFrame(animarPelotas);
+    }
+
+    function inicializarGraficas() {
+      const ctx1 = document.getElementById('graficaPelotas').getContext('2d');
+      const ctx2 = document.getElementById('graficaSuma').getContext('2d');
+
+      graficaPelotas = new Chart(ctx1, {
+        type: 'bar',
+        data: {
+          labels: ['1', '2', '3', '4'],
+          datasets: [{
+            label: 'Frecuencia de cada pelota',
+            data: frecuenciaPelotas,
+            backgroundColor: colores
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: false }
+          }
+        }
+      });
+
+      graficaSuma = new Chart(ctx2, {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: [{
+            label: 'Distribución de suma de pelotas',
+            data: [],
+            borderColor: '#00ffcc',
+            backgroundColor: 'rgba(0, 255, 204, 0.2)',
+            tension: 0.3
+          }]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            x: { title: { display: true, text: 'Suma (2-8)' } },
+            y: { title: { display: true, text: 'Frecuencia' }, beginAtZero: true }
+          }
+        }
+      });
+    }
+
+    function actualizarGraficas() {
+      graficaPelotas.data.datasets[0].data = frecuenciaPelotas;
+      graficaPelotas.update();
+
+      const sumas = Object.keys(frecuenciaSumas).sort((a, b) => a - b);
+      graficaSuma.data.labels = sumas;
+      graficaSuma.data.datasets[0].data = sumas.map(s => frecuenciaSumas[s]);
+      graficaSuma.update();
+    }
+
+    window.onload = () => {
+      crearPelotas();
+      inicializarGraficas();
+      animarPelotas();
+    };
+  </script>
+</body>
+</html>
